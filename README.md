@@ -116,3 +116,153 @@ Access the websites:
 - http://localhost:8082
 
 Press CTRL+C to stop containers and exit Docker Compose.
+
+## Kubernetes
+
+### Prerequisites
+
+* Kubernetes cluster
+* `kubectl` installed and configured to access your Kubernetes cluster
+
+If you need a cluster you can use [Minikube](https://minikube.sigs.k8s.io/) or create one on [Azure with AKS](https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough).
+
+### Publish Docker image (if using DockerHub)
+
+To Docker Hub (use your Docker login and repository name):
+
+```sh
+docker login
+docker tag nginx-demo clarenceb/nginx-demo
+docker push clarenceb/nginx-demo
+```
+
+### Publish Docker image (if using ACR with AKS)
+
+To Azure Container Registry:
+
+```sh
+az group create --name myacr --location australiaeast
+az acr create --resource-group myacr --name <myacr-unique-name> --sku Basic
+az acr login --name <myacr-unique-name>
+docker tag nginx-demo <myacr-unique-name>.azurecr.io/nginx-demo
+docker push <myacr-unique-name>.azurecr.io/nginx-demo
+```
+
+Grant access to your AKS cluster to pull images form ACR:
+
+```sh
+ACR_ID=$(az acr show -n <myacr-unique-name> --query id -o tsv)
+az aks update -n <aks-cluster-name> -g <aks-resource-group> --attach-acr $ACR_ID
+```
+
+### Pods
+
+```sh
+kubectl run nginx-demo --image=<myacr-unique-name>.azurecr.io/nginx-demo --generator=run-pod/v1 --port=8080
+kubectl get pod
+kubectl describe pod/nginx-demo
+```
+
+Port forward to access the pod from localhost:
+
+```sh
+kubectl port-forward pod/nginx-demo 8080:80
+```
+
+Cleanup:
+
+```sh
+kubectl delete pod/nginx-demo
+```
+
+With a Kubernetes Manifest:
+
+```sh
+kubectl apply -f kubernetes/pod.yaml
+kubectl get pod
+kubectl describe pod/nginx-demo
+kubectl port-forward pod/nginx-demo 8080:80
+kubectl delete pod/nginx-demo
+```
+
+### Relica Sets
+
+"A ReplicaSet’s purpose is to maintain a stable set of replica Pods running at any given time. As such, it is often used to guarantee the availability of a specified number of identical Pods." - [Source](https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/).
+
+
+With a Kubernetes Manifest:
+
+```sh
+kubectl apply -f kubernetes/replica-set.yaml
+kubectl get rs
+kubectl get pod
+kubectl describe rs/nginx-demo-rs
+kubectl port-forward rs/nginx-demo-rs 8080:80
+
+# Try killing a pod, the dpeloyment brings it back.
+kubectl get pods
+kubectl delete pod/nginx-deployment-c5c5db647-5ms8q
+kubectl get pod
+kubectl describe rs/nginx-demo-rs
+
+# Cleanup
+kubectl delete rs/nginx-demo-rs
+```
+
+### Deployments
+
+"A Deployment provides declarative updates for Pods and ReplicaSets.
+
+You describe a desired state in a Deployment, and the Deployment Controller changes the actual state to the desired state at a controlled rate. You can define Deployments to create new ReplicaSets, or to remove existing Deployments and adopt all their resources with new Deployments." - [Source](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
+
+With a Kubernetes Manifest:
+
+```sh
+kubectl apply -f kubernetes/deployment.yaml
+kubectl get deploy
+kubectl get rs
+kubectl get pod
+kubectl describe deploy/nginx-deployment
+kubectl port-forward deployment/nginx-deployment 8080:80
+# Try killing a pod, the dpeloyment brings it back.
+kubectl get pods
+kubectl delete pod/nginx-deployment-c5c5db647-5ms8q
+kubectl get pod
+kubectl describe deploy/nginx-deployment
+
+# Cleanup
+kubectl delete deployment/nginx-deployment
+```
+
+You can perform a rolling update with Deployments:
+
+```sh
+kubectl set image deployment/nginx-deployment nginx-demo=clarenceb/nginx-demo:v2
+```
+
+See: https://kubernetes.io/docs/tutorials/kubernetes-basics/update/update-intro/
+
+### Services
+
+```sh
+kubectl apply -f kubernetes/service.yaml
+```
+
+Wait for Load Balancer IP.
+
+```sh
+kubectl get svc
+# EXTERNAL-IP
+# xx.xx.xx.xx
+```
+
+Access the dmeo: http://xx.xx.xx.xx
+
+If using Minikube, change `type: LoadBalancer` to `type: NodePort` and use one of the Node IPs to access the sort.
+
+Cleanup:
+
+```sh
+kubectl delete deployment/nginx-deployment
+kubectl delete svc/nginx-demo-svc
+```
