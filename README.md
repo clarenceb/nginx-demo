@@ -95,6 +95,7 @@ From within the `nginx-web2` container, the api could be access using the `nginx
 docker exec -ti nginx-demo2 bash
 apt install curl -y
 curl -H "Accept: application/json" http://nginx-api:8081/countries.json
+exit
 ```
 
 ### Remove the containers
