@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-api
+  labels:
+    app: nginx-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx-api
+  template:
+    metadata:
+      labels:
+        app: nginx-api
+    spec:
+      containers:
+      - name: nginx-api
+        image: clarenceb/nginx-demo
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: nginx-demo-fs
+          mountPath: /var/www/html
+          subPath: api
+      volumes:
+      - name: nginx-demo-fs
+        azureFile:
+          secretName: azure-secret
+          shareName: nginxdemoshare
+          readOnly: true
